@@ -1,0 +1,605 @@
+---
+title: "practice"
+author: "yudi.wang"
+date: "May 8, 2016"
+output: pdf_document
+---
+this is for the midterm exam
+###plot functions--2.3
+```{r}
+x=rnorm(100)
+y=rnorm(100)
+plot(x,y,xlab="this is the x-axis",ylab="this is the y-axis",main="plot of x vs y")
+dim(Auto)
+names(Auto)
+attach(Auto)
+plot(cylinders,mpg)
+pairs(Auto)
+pairs(~mpg+displacement+horsepower+weight+acceleration,Auto)
+summary(Auto)
+summary(mpg)
+```
+
+###linear regression--3.6
+```{r}
+library(MASS)
+library(ISLR)
+fix(Boston)
+names(Boston)
+lm.fit.Boston=lm(medv~lstat,data = Boston)
+lm.fit.Boston
+summary(lm.fit.Boston)
+names(lm.fit.Boston)
+coef(lm.fit.Boston)
+confint(lm.fit.Boston)
+predict(lm.fit.Boston,data.frame(lstat=c(5,10,15)),interval = "confidence")
+predict(lm.fit.Boston,data.frame(lstat=c(5,10,15)),interval = "prediction")
+par(mfrow=c(2,2))
+plot(lm.fit.Boston)
+abline(lm.fit.Boston)
+```
+
+###multiple linear regression
+```{r}
+lm.fit.Boston2=lm(medv~lstat+age,data = Boston)
+summary(lm.fit.Boston2)
+library(car)
+vif(lm.fit.Boston2)
+lm.fit.Boston2=update(lm.fit.Boston2,~.-age) 
+```
+
+###interaction terms
+```{r}
+attach(Boston)
+summary(lm(Boston$medv~lstat*age,data = Boston))
+```
+
+###non-linear transformations of the predictors
+```{r}
+lm.fit2.Boston=lm(medv~lstat+I(lstat^2))
+summary(lm.fit2.Boston)
+lm.fit2.Boston1=lm(medv~lstat)
+anova(lm.fit2.Boston1,lm.fit2.Boston)
+lm.fit3.Boston=lm(medv~poly(lstat,5))
+summary(lm.fit3.Boston)
+```
+###qualitative predictors--3.6.6
+```{r}
+library(ISLR)
+fix(Carseats)
+names(Carseats)
+lm.fit.Carseats=lm(Sales~.+Income:Advertising+Price:Age,data = Carseats)
+summary(lm.fit.Carseats)
+```
+###writing functions--3.6.7
+```{r}
+LoadLibraries=function(){
+  library(ISLR)
+  library(MASS)
+  print("The libraries have been loaded")
+}
+LoadLibraries
+LoadLibraries()
+```
+
+##4.6 Lab: Logistic Regression, LDA, QDA, and KNN
+###4.6.1 the stock market data
+```{r}
+library(ISLR)
+names(Smarket)
+summary(Smarket)
+pairs(Smarket)
+cor(Smarket[,-9])
+attach(Smarket)
+plot(Volume)
+```
+###4.6.2 Logistic Regression
+```{r}
+library(MASS)
+glm.fit.Smarket=glm(Direction~Lag1+Lag2+Lag3+Lag4+Lag5+Volume,data=Smarket,family = binomial)
+summary(glm.fit.Smarket)
+coef(glm.fit.Smarket)
+summary(glm.fit.Smarket)$coef
+summary(glm.fit.Smarket)$coef[,4]
+glm.probs=predict(glm.fit.Smarket,type="response")
+glm.probs[1:10]
+contrasts(Direction)
+glm.pred=rep("Down",1250)
+glm.pred[glm.probs>.5]="Up"
+table(glm.pred,Direction)
+mean(glm.pred==Direction)
+##train dataset
+train=(Year<2005)
+Smarket.2005=Smarket[!train,]
+dim(Smarket.2005)
+Direction.2005=Direction[!train]
+glm.fit.Smarket2=glm(Direction~Lag1+Lag2+Lag3+Lag4+Lag5+Volume,data = Smarket,family = binomial,subset = train)
+glm.probs=predict(glm.fit.Smarket2,Smarket.2005,type="response")
+glm.pred=rep("Down",252)
+glm.pred[glm.probs>.5]="Up"
+table(glm.pred,Direction.2005)
+mean(glm.pred==Direction.2005)
+mean(glm.pred!=Direction.2005)
+```
+###4.6.3 Linear Discriminant Analysis
+```{r}
+library(MASS)
+lda.fit.Smarket=lda(Direction~Lag1+Lag2,data = Smarket,subset = train)
+lda.fit.Smarket
+plot(lda.fit.Smarket)
+lda.pred=predict(lda.fit.Smarket,Smarket.2005)
+names(lda.pred)
+lda.class=lda.pred$class
+table(lda.class,Direction.2005)
+mean(lda.class==Direction.2005)
+sum(lda.pred$posterior[,1]>=.5)
+sum(lda.pred$posterior[,1]<.5)
+lda.pred$posterior[1:20,1]
+lda.class[1:20]
+```
+###4.6.4 Quadratic Discriminanet Analysis
+```{r}
+library(MASS)
+qda.fit.Smarket=qda(Direction~Lag1+Lag2,data = Smarket,subset = train)
+qda.fit.Smarket
+qda.class=predict(qda.fit.Smarket,Smarket.2005)$class
+table(qda.class,Direction.2005)
+mean(qda.class==Direction.2005)
+```
+###4.6.5 K-Nearest Neighbors
+```{r}
+library(class)
+library(ISLR)
+attach(Smarket)
+train.X=cbind(Lag1,Lag2)[train,]
+test.X=cbind(Lag1,Lag2)[!train,]
+train.Direction=Direction[train]
+set.seed(1)
+knn.pred=knn(train.X,test.X,train.Direction,k=1)
+table(knn.pred,Direction.2005)
+mean(knn.pred==Direction.2005)
+```
+```{r}
+knn.pred2=knn(train.X,test.X,train.Direction,k=3)
+table(knn.pred2,Direction.2005)
+mean(knn.pred2==Direction.2005)
+```
+###4.6.6 An Application to Caravan Insurance Data
+```{r}
+dim(Caravan)
+attach(Caravan)
+summary(Purchase)
+##standardize the data
+standardized.X=scale(Caravan[,-86])
+var(Caravan[,1])
+var(Caravan[,2])
+var(standardized.X[,1])
+var(standardized.X[,2])
+```
+
+```{r}
+##split the observations into a test set
+test=1:1000
+train.X=standardized.X[-test,]
+test.X=standardized.X[test,]
+train.Y=Purchase[-test]
+test.Y=Purchase[test]
+set.seed(2)
+knn.pred1=knn(train.X,test.X,train.Y,k=1)
+mean(test.Y!=knn.pred1)
+mean(test.Y!="No")
+table(knn.pred1,test.Y)
+mean(knn.pred1==test.Y)
+mean(knn.pred1!=test.Y)
+knn.pred2=knn(train.X,test.X,train.Y,k=3)
+table(knn.pred2,test.Y)
+mean(knn.pred2!=test.Y)
+knn.pred3=knn(train.X,test.X,train.Y,k=5)
+table(knn.pred3,test.Y)
+mean(knn.pred3!=test.Y)
+```
+
+```{r}
+##fit a logistic regression model to the data,cut-off=0.25
+glm.fit.Carvan=glm(Purchase~.,data = Caravan,family = binomial,subset = -test)
+glm.probs=predict(glm.fit.Carvan,Caravan[test,],type="response")
+glm.pred1=rep("No",1000)
+glm.pred1[glm.probs>.5]="Yes"
+table(glm.pred1,test.Y)
+mean(glm.pred1==test.Y)
+glm.pred2=rep("No",1000)
+glm.pred2[glm.probs>.25]="Yes"
+table(glm.pred2,test.Y)
+mean(glm.pred2!=test.Y)
+```
+##5.3 Lab:Cross-Validation and the Bootstrap
+###5.3.1 the validation set approach
+```{r}
+library(ISLR)
+set.seed(123)
+train=sample(392,196)
+lm.fit.Auto=lm(mpg~horsepower,data=Auto,subset = train)
+attach(Auto)
+##calculate the MSE of the 196,select not in the dataset
+mean((mpg-predict(lm.fit.Auto,Auto))[-train]^2)
+lm.fit2.Auto=lm(mpg~poly(horsepower,2),data = Auto,subset = train)
+mean((mpg-predict(lm.fit2.Auto,Auto))[-train]^2)
+lm.fit3.Auto=lm(mpg~poly(horsepower,3),data = Auto,subset = train)
+mean((mpg-predict(lm.fit3.Auto,Auto))[-train]^2)
+```
+###5.3.2 leave-one-out cross-validation
+```{r}
+#automatically computed for any generalized linear model using the glm() and cv.glm() functions
+library(boot)
+glm.fit=glm(mpg~horsepower,data = Auto)
+cv.err=cv.glm(Auto,glm.fit)
+cv.err$delta
+cv.error=rep(0,5)
+#initiate a for loop which iteratively fits polynomial regression
+for (i in 1:5) {
+  glm.fit=glm(mpg~poly(horsepower,i),data=Auto)
+  cv.error[i]=cv.glm(Auto,glm.fit)$delta[1]
+}
+cv.error
+```
+###5.3.3 K-Fold Cross-Validation
+```{r}
+set.seed(10)
+##create a matrix
+cv.error.10=rep(0,10)
+for (i in 1:10) {
+  glm.fit=glm(mpg~poly(horsepower,i),data=Auto)
+  cv.error.10[i]=cv.glm(Auto,glm.fit,K=10)$delta[1]
+}
+cv.error.10
+#computation time is shorter than usual 
+```
+###5.3.4 the bootstrap
+```{r}
+#estimating the accuracy of a statistic of interest
+#creat a function that computes the statistic of interest
+#use the boot() function perform the bootstrap by repeatedly sampling observations from the data set with replacement
+library(ISLR)
+#take in (x,y) data as well as a vector indicating which observations should be used to estimate alpha
+alpha.fn=function(data,index){
+  X=data$X[index]
+  Y=data$Y[index]
+  return((var(Y)-cov(X,Y))/(var(X)+var(Y)-2*cov(X,Y)))
+}
+alpha.fn(Portfolio,1:100)
+set.seed(123)
+alpha.fn(Portfolio,sample(100,100,replace = T))
+#performing this commadn many times, recording all of the corresponding estimates for alpha and computing the resulting standard deviation
+boot(Portfolio,alpha.fn,R=1000)
+```
+
+```{r}
+#estimating the Accuracy of a Linear Regression Model
+boot.fn=function(data,index)
+  return(coef(lm(mpg~horsepower,data = data,subset = index)))
+boot.fn(Auto,1:392)
+boot(Auto,boot.fn,1000)
+summary(lm(mpg~horsepower,data=Auto))$coef
+boot.fn=function(data,index){
+  coefficients(lm(mpg~horsepower+I(horsepower^3),data=data,subset=index))
+}
+set.seed(12)
+boot(Auto,boot.fn,1000)
+summary(lm(mpg~horsepower+I(horsepower^3),data = Auto))$coef
+```
+
+##6.5 Lab 1: Subset Selection Methods
+###6.5.1 best subset selection
+```{r}
+library(ISLR)
+fix(Hitters)
+names(Hitters)
+dim(Hitters)
+#use to identify the missing observations, it returns a vector of the same length as the input vector, with a true for any elements that are missing, 
+sum(is.na(Hitters$Salary))
+Hitters=na.omit(Hitters)
+dim(Hitters)
+sum(is.na(Hitters))
+library(leaps)
+#regsubsets performs best subset selection by identifying the best model that contains a given number of predictors, where best is quantified using RSS, summary command outputs the best set of variables for each model size
+regfit.full=regsubsets(Salary~.,Hitters)
+summary(regfit.full)
+regfit.full=regsubsets(Salary~.,data = Hitters,nvmax = 19)
+reg.summary=summary(regfit.full)
+names(reg.summary)
+reg.summary$rsq
+par(mfrow=c(2,2))
+plot(reg.summary$rss,xlab = "Number of Variables",ylab = "RSS")
+plot(reg.summary$adjr2,xlab = "Number of Variables",ylab = "Adjusted RSq")
+which.max(reg.summary$adjr2)
+points(11,reg.summary$adjr2[11],col="red",cex=2,pch=20)
+plot(reg.summary$cp,xlab = "Number of Variables",ylab = "Cp")
+which.min(reg.summary$cp)
+points(10,reg.summary$cp[10],col="red",cex=2,pch=20)
+which.min(reg.summary$bic)
+plot(reg.summary$bic,xlab = "Number of Variables",ylab = "BIC")
+points(6,reg.summary$bic[6],col="red",cex=2,pch=20)
+plot(regfit.full,scale = "r2")
+plot(regfit.full,scale = "adjr2")
+plot(regfit.full,scale = "Cp")
+plot(regfit.full,scale = "bic")
+coef(regfit.full,6)
+```
+###6.5.2 Forward and Backward stepwise selection
+```{r}
+#use the regsubsets() function to perform forward stepwise or backward stepwise selection, using the argument method="forward" or method="backward"
+regfit.fwd=regsubsets(Salary~.,data = Hitters,nvmax = 19,method = "forward")
+summary(regfit.fwd)
+regfit.bwd=regsubsets(Salary~.,data = Hitters,nvmax = 19,method="backward")
+summary(regfit.bwd)
+coef(regfit.full,7)
+coef(regfit.fwd,7)
+coef(regfit.bwd,7)
+```
+###6.5.3 choosing among models using the validation set approach and cross-validation
+```{r}
+set.seed(13)
+train=sample(c(TRUE,FALSE),nrow(Hitters),rep=TRUE)
+test=(!train)
+regfit.best=regsubsets(Salary~.,data = Hitters[train,],nvmax = 19)
+#the model.matrix funtion is used in many regression packages for building an X matirx from data. 
+#we extract the coefficients from regfit.best for the best model of that size, multiply them into the appropriate columns of the test model matrix to form the predictions, and compute the test MSE
+test.mat=model.matrix(Salary~.,data = Hitters[test,])
+val.errors=rep(NA,19)
+for (i in 1:19) {
+  coefi=coef(regfit.best,id=i)
+  pred=test.mat[,names(coefi)]%*%coefi
+  val.errors[i]=mean((Hitters$Salary[test]-pred)^2)
+}
+val.errors
+which.min(val.errors)
+coef(regfit.best,10)
+#function predict.regsubsets
+predict.regsubsets=function(object,newdata,id,...){
+  form=as.formula(object$call[[2]])
+  mat=model.matrix(form,newdata)
+  coefi=coef(object,id=id)
+  xvars=names(coefi)
+  mat[,xvars]%*%coefi
+}
+#best subset selection on the full data set and select the best ten variable model, rather than simply using the variables that were obtained from the training data set, because the best ten variable model on the full data set may differ from the corresponding model on the training set.
+regfit.best=regsubsets(Salary~.,data = Hitters,nvmax = 19)
+coef(regfit.best,10)
+k=10
+set.seed(123)
+folds=sample(1:k,nrow(Hitters),replace = TRUE)
+cv.errors=matrix(NA,k,19,dimnames = list(NULL,paste(1:19)))
+for (j in 1:k) {
+  best.fit=regsubsets(Salary~.,data = Hitters[folds!=j,],nvmax = 19)
+  for (i in 1:19) {
+    pred=predict(best.fit,Hitters[folds==j,],id=i)
+    cv.errors[j,i]=mean((Hitters$Salary[folds==j]-pred)^2)
+  }
+}
+#use apply() to average over the columns of this matrix in order to obtain a vector for which the jth element is the cross-validation error for the j-variable model
+mean.cv.errors=apply(cv.errors,2, mean)
+mean.cv.errors
+par(mfrow=c(1,1))
+plot(mean.cv.errors,type = 'b')
+reg.best=regsubsets(Salary~.,data = Hitters,nvmax = 19)
+coef(reg.best,11)
+```
+##lab2 ridge regression and the lasso
+## Lab 7.8 Non linear modeling
+###7.8.1 Polynomial Regression and Step Functions
+```{r}
+#re-analyze the Wage data set. 
+library(ISLR)
+attach(Wage)
+#Polynomial Regression and Step Functions
+fit1=lm(wage~poly(age,4),data = Wage)
+coef(summary(fit1))
+#returns a matrix whose columns are a basis of orthogonal polunomials, which essentially means that each column is a linear combination of the variables.
+#using raw=TRUE argument to the poly() function to obtain age ... age^4 derectitly. the choice of basis clearly affects the coefficient estimates, it does not affect the fitted values obtained. 
+fit2=lm(wage~poly(age,4,raw=T), data = Wage)
+coef(summary(fit2))
+fit2a=lm(wage~age+I(age^2)+I(age^3)+I(age^4),data = Wage)
+coef(fit2a)
+fit2b=lm(wage~cbind(age,age^2,age^3,age^4),data = Wage)
+#this does the same more compactly, using the cbind() function call such as cbind() inside a formula also serves as a wrapper
+agelims=range(age)
+age.grid=seq(from=agelims[1],to=agelims[2])
+preds=predict(fit1,newdata=list(age=age.grid),se=TRUE)
+se.bands=cbind(preds$fit+2*preds$se.fit,preds$fit-2*preds$se.fit)
+#finally we plot the data and add the fit from the degree-4 polynomial
+par(mfrow=c(1,2),mar=c(4.5,4.5,1,1),oma=c(0,0,4,0))
+#here the mar and oma arguments to par( allow us to control the margins of the plot, and the title() functions creates a figure title that spans both subplots)
+plot(age,wage,xlim = agelims,cex=.5,col="darkgrey")
+title("Degree-4 Polynomial",outer = T)
+lines(age.grid,preds$fit,lwd=2,col="blue")
+matlines(age.grid,se.bands,lwd = 1,col = "blue",lty = 3)
+preds2=predict(fit2,newdata = list(age=age.grid),se=TRUE)
+max(abs(preds$fit-preds2$fit))
+fit3=glm(I(wage>250)~poly(age,4),data = Wage,family = binomial)
+#fit a polynomial logistic regression
+#use the wrapper I() to create this binary response variable on the fly
+#the expression wage>250 evaluates to a logical variable containing TRUE2 and FALSE2 which glm() coerces to binary by setting the TRUEs to 1 adn the FALSEs to 0
+preds=predict(fit3,newdata=list(age=age.grid),se=T)
+table(cut(age,4))
+fit=lm(wage~cut(age,4),data = Wage)
+coef(summary(fit))
+```
+###7.8.2 splines
+```{r}
+library(splines)
+#The bs() function generates the entire matrix of bs() basis functions for splines with the specified set of knots. 
+fit=lm(wage~bs(age,knots = c(25,40,60)),data = Wage)
+pred=predict(fit,newdata = list(age=age.grid),se=T)
+plot(age,wage,col="grey")
+lines(age.grid,pred$fit,lwd=2)
+lines(age.grid,pred$fit+2*pred$se,lty="dashed")
+lines(age.grid,pred$fit-2*pred$se,lty="dashed")
+dim(bs(age,knots=c(25,40,60)))
+dim(bs(age,df=6))
+attr(bs(age,df=6),"knots")
+fit2=lm(wage~ns(age,df=4),data = Wage)
+pred2=predict(fit2,newdata = list(age=age.grid),se=T)
+lines(age.grid,pred2$fit,col="red",lwd=2)
+plot(age,wage,xlim = agelims,cex=.5,col="darkgrey")
+title("Smoothing Spline")
+fit=smooth.spline(age,wage,df=16)
+fit2=smooth.spline(age,wage,cv=TRUE)
+fit2$df
+lines(fit,col="red",lwd=2)
+lines(fit2,col="blue",lwd=2)
+legend("topright",legend = c("16 DF","6.8 DF"),col = c("red","blue"),lty = 1,lwd = 2,cex = .8)
+#in the first call to smooth.spline, we specified df=16, the function then determines which value of namuda leads to 16 degrees of freedom, intthe second call to smooth.spline, we select the smoothness level by cross validation, this results in a value of namuda that yeilds 6.8 degrees of freedom. in order to perform local regression, we use the loess function
+plot(age, wage, xlim = agelims, cex=.5, col="darkgrey")
+title("local regression")
+fit=loess(wage~age, span=.2,data = Wage)
+fit2=loess(wage~age, span=.5,data=Wage)
+lines(age.grid,predict(fit,data.frame(age=age.grid)),col="red",lwd=2)
+lines(age.grid,predict(fit2,data.frame(age=age.grid)),col="blue",lwd=2)
+legend("topright",legend=c("Span=0.2","Span=0,5"),col = c("red","blue"),lty = 1,lwd = 2,cex = .8)
+plot(age,wage,xlim=agelims,cex=.5,col="darkgrey")
+title("Local Regression")
+fit=loess(wage~age,span = .2,data=Wage)
+fit2=loess(wage~age,span = .2,data = Wage)
+lines(age.grid,predict(fit,data.frame(age=age.grid)),col="red",lwd=2)
+lines(age.grid,predict(fit2,data.frame(age=age.grid)),col="blue",lwd=2)
+legend("topright",legend = c("Span=0.2","Span=0.5"),col = c("red","blue"),lty = 1,lwd = 2,cex = .8)
+
+```
+##7.8.3 GAMs
+```{r}
+gam1=lm(wage~ns(year,4)+ns(age,5)+education,data = Wage)
+library(gam)
+gam.m3=gam(wage~s(year,4)+s(age,5)+education,data=Wage)
+par(mfrow=c(1,3))
+plot(gam.m3,se=TRUE,col="blue")
+plot.gam(gam1,se=TRUE,col="red")
+gam.m1=gam (wage???s(age ,5)+education,data=Wage)
+gam.m2=gam (wage???year+s(age ,5)+education,data =Wage)
+anova(gam.m1,gam.m2,gam.m3,test ="F")
+summary(gam.m3)
+pred=predict(gam.m2,newdata=Wage)
+gam.lo=gam(wage~s(year,df=4)+lo(age,span=0.7)+education,data=Wage)
+plot.gam(gam.lo,se=TRUE,col="green")
+gam.lo.i=gam(wage~lo(year,age,span=0.5)+education,data=Wage)
+library(akima)
+plot(gam.lo.i)
+gam.lr=gam(I(wage>250)~year+s(age,df=5)+education,family=binomial,data=Wage)
+par(mfrow=c(1,3))
+plot(gam.lr,se=T,col="green")
+table(education ,I(wage >250))
+gam.lr.s=gam(I(wage >250)???year+s(age ,df=5)+education,family=binomial ,data=Wage,subset=(education!="1.< HS Grad"))
+plot(gam.lr.s,se=T,col =" green ")
+```
+##8.3 LAb: Decision trees
+```{r}
+set.seed(1234)
+library(tree)
+library(ISLR)
+attach(Carseats)
+High=ifelse(Sales<=8,"No","Yes")
+Carseats=data.frame(Carseats,High)
+tree.carseats=tree(High~.-Sales,Carseats)
+summary(tree.carseats)
+plot(tree.carseats)
+text(tree.carseats,pretty=0)
+tree.carseats
+#evaluate the performance of the tree
+train=sample(1:nrow(Carseats),200)
+Carseats.test=Carseats[-train,]
+High.test=High[-train]
+tree.carseats1=tree(High~.-Sales,Carseats,subset = train)
+tree.pred=predict(tree.carseats1,Carseats.test,type = "class")
+table(tree.pred,High.test)
+```
+##cross validation to tree
+```{r}
+library(randomForest)
+library(boot)
+set.seed(123)
+cv.carseats=cv.tree(tree.carseats,FUN=prune.misclass)
+names(cv.carseats)
+cv.carseats
+par(mfrow=c(1,2))
+plot(cv.carseats$size,cv.carseats$dev,type = "b")
+plot(cv.carseats$k,cv.carseats$dev,type = "b")
+prune.carseats=prune.misclass(tree.carseats,best=9)
+plot(prune.carseats)
+text(prune.carseats,pretty=0)
+tree.pred=predict(prune.carseats,Carseats.test,type="class")
+table(tree.pred,High.test)
+```
+###8.3.2 fitting regression trees
+```{r}
+library(MASS)
+set.seed(12)
+train=sample(1:nrow(Boston),nrow(Boston)/2)
+tree.boston=tree(medv~.,Boston,subset=train)
+summary(tree.boston)
+plot(tree.boston)
+text(tree.boston,pretty=0)
+cv.boston=cv.tree(tree.boston)
+plot(cv.boston$size,cv.boston$dev,type='b')
+prune.boston=prune.tree(tree.boston,best=5)
+plot(prune.boston)
+text(prune.boston,pretty=0)
+yhat=predict(tree.boston,newdata=Boston[-train,])
+boston.test=Boston[-train,"medv"]
+plot(yhat,boston.test)
+abline(0,1)
+mean((yhat-boston.test)^2)
+```
+###8.3.3 Bagging and Random Forests
+```{r}
+library(randomForest)
+set.seed(123)
+bag.boston=randomForest(medv~.,data=Boston,subset=train,mtry=13,importance=TRUE)
+bag.boston
+yhat.bag=predict(bag.boston,newdata=Boston[-train,])
+plot(yhat.bag,boston.test)
+abline(0,1)
+mean((yhat.bag-boston.test)^2)
+bag.boston=randomForest(medv~.,data=Boston,subset=train,mtry=13,ntree=25)
+yhat.bag=predict(bag.boston,newdata=Boston[-train,])
+mean((yhat.bag-boston.test)^2)
+set.seed(123)
+rf.boston=randomForest(medv~.,data=Boston,subset=train,mtry=6,importance=TRUE)
+yhat.rf=predict(rf.boston,newdata=Boston[-train,])
+mean((yhat.rf-boston.test)^2)
+importance(rf.boston)
+varImpPlot(rf.boston)
+```
+##nnet
+```{r}
+library(datasets)
+names(infert)
+#train the network
+library(neuralnet)
+nn=neuralnet(case~age+parity+induced+spontaneous,data=infert,hidden = 2,err.fct = "ce",linear.output = F)
+#output training results
+names(nn)
+#result matrix
+#nn$result.matrix
+out<-cbind(nn$covariate,nn$net.result[[1]])
+dimnames(out)<-list(NULL,c("age","parity","included","spontaneous","nn-output"))
+head(out)
+#generalized weights
+head(nn$generalized.weights[[1]])
+plot(nn)
+```
+##Data Mining Lab 5: Introduction to Neural Networks
+```{r}
+library(nnet)
+library(MASS)
+finaltrain<-read.csv("C:/Users/wyd15/Downloads/finaltrain.csv")
+finaltest<-read.csv("C:/Users/wyd15/Downloads/finaltest.csv")
+str(finaltrain)
+attach(finaltrain)
+#creat dummy data
+dummySpecies<-class.ind(finaltrain$Species)
+head(cbind(dummySpecies,data$Species))
+finaltrain<-model.matrix()
+
+fitnn1=multinom(OutCatg ~CAT + DOG, data = finaltrain)
+# table(data.frame(predicted=predict(fitnn1,finaltest)[,2]>0.5,actual=finaltest$Intake.Type[,2]))
+write.csv(data.frame(predict(fitnn1, newdata = finaltest, type="probs")), file = "/Users/wyd15/Documents/UCLA/STATS 101C/final project/submisson.csv", row.names = FALSE)
+```
