@@ -1,0 +1,167 @@
+---
+title: "Final Exam"
+author: "Alexander Tung"
+date: "May 15, 2016"
+output: pdf_document
+---
+
+Libraries
+```{r}
+library(nnet)
+library(xgboost)
+library(Matrix)
+library(data.table)
+library(plyr)
+library(date)
+library(e1071)
+```
+
+```{r}
+#Predict OutCatg
+finaltrainog <- read.csv("C:/Users/wyd15/Downloads/finaltrain1.csv")
+finaltestog <- read.csv("C:/Users/wyd15/Downloads/finaltest1.csv")
+finaltrainog$OutCatg <- gsub("FOSTER|INVENTORY|RTO|TRANSFER|UNKNOWN", "OTHER", finaltrainog$OutCatg)
+
+#Combine both data sets to clean up both at the same time
+finaltestog$OutCatg <- rep("OTHER", 100000)
+totaldata <- rbind(finaltrainog, finaltestog)
+totaldata<-subset(totaldata,select =-Color.Markings)
+
+#Manipulation of Data
+#Delete NAME
+totaldata <- totaldata[,-which(names(totaldata) == "NAME")]
+
+#Species to boolean variables (Cat = 0, Dog = 1)
+totaldata[["Species"]] <- as.numeric(unclass(totaldata[["Species"]])) - 1
+
+#Delete Primary.Breed
+totaldata <- totaldata[,-which(names(totaldata) == "Primary.Breed")]
+
+#Sex to Discrete Variables (F = 0, M = 1, 2 = N, S = 3)
+totaldata[["Sex"]] <- as.numeric(unclass(totaldata[["Sex"]])) - 1
+
+#Change date variables
+totaldata$DOB <- as.Date(totaldata$DOB)
+totaldata$S.N.Date <- as.Date(totaldata$S.N.Date)
+totaldata$Intake.Date <- as.Date(totaldata$Intake.Date)
+totaldata$Outcome.Date <- as.Date(totaldata$Outcome.Date)
+totaldata$Microchip.Date <- as.Date(totaldata$Microchip.Date)
+totaldata$License.Date <- as.Date(totaldata$License.Date,format="%Y-%m-%d")
+
+#Function to calculate difference in months
+monthdiff <- function(date){
+  return((2016 - as.numeric(format(date, "%Y")))*12 + (6 - as.numeric(format(date, "%m"))))
+}
+
+#Change DOB to Difference in Months
+totaldata$DOB <- monthdiff(totaldata$DOB)
+colnames(totaldata)[4] <- "Months.DOB"
+totaldata$Months.DOB[is.na(totaldata$Months.DOB)] <- mean(totaldata$Months.DOB, na.rm = T)
+
+#Delete S.N.Date
+totaldata <- totaldata[,-which(names(totaldata) == "S.N.Date")]
+
+#Change Intake.Date to Difference in Months
+totaldata$Intake.Date <- monthdiff(totaldata$Intake.Date)
+colnames(totaldata)[5] <- "Months.Intake"
+totaldata$Months.Intake[is.na(totaldata$Months.Intake)] <- mean(totaldata$Months.Intake, na.rm = T)
+
+#Intake.Type to Discrete Variables (8 total discrete numbers)
+totaldata[["Intake.Type"]] <- as.numeric(unclass(totaldata[["Intake.Type"]])) - 1
+
+#Delete Intake.Zip.Code
+totaldata <- totaldata[,-which(names(totaldata) == "Intake.Zip.Code")]
+
+#Shelter to Discrete Variables (8 total shelter locations)
+totaldata[["Shelter"]] <- as.numeric(unclass(totaldata[["Shelter"]])) - 1
+
+#Delete Outcome.Date
+totaldata <- totaldata[,-which(names(totaldata) == "Outcome.Date")]
+
+#Change NA to 0
+changena <- function(x){
+  x <- factor(x, levels = c(levels(x), 0))
+  x[is.na(x)] <- 0
+  return(x)
+}
+
+#Microchip.Status to boolean variables (Current = 0, NA = 1)
+totaldata$Microchip.Status <- changena(totaldata$Microchip.Status)
+totaldata[["Microchip.Status"]] <- as.numeric(unclass(totaldata[["Microchip.Status"]])) - 1
+
+#Change Microchip.Date to Difference in Months
+totaldata$Microchip.Date <- monthdiff(totaldata$Microchip.Date)
+colnames(totaldata)[9] <- "Months.Microchip"
+totaldata$Months.Microchip[is.na(totaldata$Months.Microchip)] <- mean(totaldata$Months.Microchip, na.rm = T)
+
+#Change License.Date to Difference in Months
+totaldata$License.Date <- monthdiff(totaldata$License.Date)
+colnames(totaldata)[10] <- "Months.License"
+totaldata$Months.License[is.na(totaldata$Months.License)] <- mean(totaldata$Months.License, na.rm = T)
+
+#OutCatg to Discrete Variables (Adoption = 0, Euthanasia = 1, Other = 2)
+totaldata[["OutCatg"]] <- as.factor(totaldata[["OutCatg"]])
+totaldata[["OutCatg"]] <- as.numeric(unclass(totaldata[["OutCatg"]])) - 1
+
+
+#Reset totaldata into finaltrain and finaltest
+finaltrain <- totaldata[c(1:113891),]
+finaltest <- totaldata[c(113892:213891), -length(totaldata)]
+rownames(finaltest) <- seq(length = nrow(finaltest))
+finaltrain$Months.DOB<-round(finaltrain$Months.DOB)
+finaltrain$Months.Microchip<-round(finaltrain$Months.Microchip)
+finaltrain$Months.License<-round(finaltrain$Months.License)
+finaltest$Months.DOB<-round(finaltest$Months.DOB)
+finaltest$Months.Microchip<-round(finaltest$Months.Microchip)
+finaltest$Months.License<-round(finaltest$Months.License)
+
+#Add more data to finaltrain
+#moredata <- read.csv("/Users/Tung/Documents/UCLA/3rd Year/Stats 101C/More Data.csv")
+#colnames(moredata)[2] <- "ARN"
+#finaltrain <- merge(finaltrain, moredata, by="ARN")
+```
+
+```{r}
+#MULTINOM
+multin <- multinom(OutCatg ~ Species + Sex + Months.DOB + Months.Intake + Intake.Type + Shelter + Microchip.Status + Months.Microchip + Months.License, data = finaltrain)
+submission <- data.frame(predict(multin, newdata = finaltest, type="probs"))
+submission <- cbind(finaltest$ARN, submission)
+colnames(submission) <- c("ARN", "ADOPTION","EUTHANASIA","OTHER")
+write.csv(submission, file = "/Users/wyd15/Documents/UCLA/STATS 101C/final project/submission.csv", row.names = FALSE)
+write.csv(finaltrain, file = "/Users/wyd15/Documents/UCLA/STATS 101C/final project/numtrain.csv", row.names = FALSE)
+write.csv(finaltest, file = "/Users/wyd15/Documents/UCLA/STATS 101C/final project/numtest.csv", row.names = FALSE)
+```
+
+```{r}
+#XGBOOST
+#Put training data into parameter variables for xgb
+X <- finaltrain[,-1]
+y <- finaltrain[,ncol(finaltrain)]
+
+set.seed(123)
+#Num_class has to be 3 since there are 3 response outcomes (ADOPTION, EUTHANASIA, OTHER)
+xgb <- xgboost(data = data.matrix(X), label = y, eta = 0.1, nround = 25, max_depth = 15, subsample = 0.5, colsample_bytree = 0.5, eval_metric = "mlogloss", objective = "multi:softprob", nthread = 3, num_class = 3)
+
+submission <- as.data.frame(matrix(predict(xgb, newdata = data.matrix(finaltest)), ncol = 3))
+submission <- cbind(finaltest$ARN, submission)
+colnames(submission) <- c("ARN", "ADOPTION","EUTHANASIA","OTHER")
+write.csv(submission, file = "/Users/wyd15/Documents/UCLA/STATS 101C/final project/submission2.csv", row.names = FALSE)
+```
+
+```{r}
+#support vector mathince
+#svm1<-ksvm(numtrain$OutCatg~.,data=numtrain,type="C-bsvc",kernel="rbfdot",kpar=list(sigma=0.1),c=3,prob.model=TRUE)
+svm2=svm(OutCatg ~ Sex+Microchip.Status,data=finaltrain,scale=TRUE,kernel="radial",degree=3,gamma=0.25, cost=10,cross=10,probability=TRUE,na.action = na.omit)
+#cross validation
+set.seed(123)
+tune1=tune(svm2,y~.,data =finaltest,kernel="linear",ranges = list(cost=c(0.001,0.01,0.1,1,5)))
+```
+
+```{r}
+#principle component analysis
+library(ISLR)
+library(stats)
+pcafinal=subset(finaltrain,select = -ARN)
+prout=prcomp(pcafinal,scale=TRUE)
+plot(prout)
+```
