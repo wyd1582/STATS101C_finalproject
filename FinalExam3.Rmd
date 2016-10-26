@@ -1,6 +1,6 @@
 ---
 title: "Final Exam"
-author: "Alexander Tung"
+author: "Yudi Wang"
 date: "May 15, 2016"
 output: pdf_document
 ---
